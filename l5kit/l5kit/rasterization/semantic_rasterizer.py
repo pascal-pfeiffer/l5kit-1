@@ -92,10 +92,10 @@ class SemanticRasterizer(Rasterizer):
 
             if self.proto_API.is_lane(element):
                 lane = self.proto_API.get_lane_coords(element_id)
-                x_min = min(np.min(lane["xyz_left"][:, 0]), np.min(lane["xyz_right"][:, 0]))
-                y_min = min(np.min(lane["xyz_left"][:, 1]), np.min(lane["xyz_right"][:, 1]))
-                x_max = max(np.max(lane["xyz_left"][:, 0]), np.max(lane["xyz_right"][:, 0]))
-                y_max = max(np.max(lane["xyz_left"][:, 1]), np.max(lane["xyz_right"][:, 1]))
+                x_min = np.min(lane["xyz"][0, :])
+                y_min = np.min(lane["xyz"][1, :])
+                x_max = np.max(lane["xyz"][0, :])
+                y_max = np.max(lane["xyz"][1, :])
 
                 lanes_bounds = np.append(lanes_bounds, np.asarray([[[x_min, y_min], [x_max, y_max]]]), axis=0)
                 lanes_ids.append(element_id)
@@ -170,12 +170,10 @@ class SemanticRasterizer(Rasterizer):
 
             # get image coords
             lane_coords = self.proto_API.get_lane_coords(self.bounds_info["lanes"]["ids"][idx])
-            xy_left = cv2_subpixel(transform_points(lane_coords["xyz_left"][:, :2], raster_from_world))
-            xy_right = cv2_subpixel(transform_points(lane_coords["xyz_right"][:, :2], raster_from_world))
-            lanes_area = np.vstack((xy_left, np.flip(xy_right, 0)))  # start->end left then end->start right
+            lanes_xy = cv2_subpixel(raster_from_world.dot(lane_coords["xyz"]).T[:, :2])
 
             # Note(lberg): this called on all polygons skips some of them, don't know why
-            cv2.fillPoly(img, [lanes_area], (17, 17, 31), lineType=cv2.LINE_AA, shift=CV2_SHIFT)
+            cv2.fillPoly(img, [lanes_xy], (17, 17, 31), lineType=cv2.LINE_AA, shift=CV2_SHIFT)
 
             lane_type = "default"  # no traffic light face is controlling this lane
             lane_tl_ids = set([MapAPI.id_as_str(la_tc) for la_tc in lane.traffic_controls])
@@ -187,7 +185,7 @@ class SemanticRasterizer(Rasterizer):
                 elif self.proto_API.is_traffic_face_colour(tl_id, "yellow"):
                     lane_type = "yellow"
 
-            lanes_lines[lane_type].extend([xy_left, xy_right])
+            lanes_lines[lane_type].extend([lanes_xy])
 
         cv2.polylines(img, lanes_lines["default"], False, (255, 217, 82), lineType=cv2.LINE_AA, shift=CV2_SHIFT)
         cv2.polylines(img, lanes_lines["green"], False, (0, 255, 0), lineType=cv2.LINE_AA, shift=CV2_SHIFT)

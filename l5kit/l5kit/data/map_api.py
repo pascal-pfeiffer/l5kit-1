@@ -110,7 +110,7 @@ class MapAPI:
             element_id (str): lane element id
 
         Returns:
-            dict: a dict with the two boundaries coordinates as (Nx3) XYZ arrays
+            dict: a dict with the boundaries coordinates as (3xN) XYZ arrays
         """
         element = self[element_id]
         assert self.is_lane(element)
@@ -132,7 +132,10 @@ class MapAPI:
             lane.geo_frame,
         )
 
-        return {"xyz_left": xyz_left, "xyz_right": xyz_right}
+        xyz = np.vstack((xyz_left, np.flip(xyz_right, 0)))
+        xyz[:, -1] = 1.0
+
+        return {"xyz": xyz.T}
 
     @staticmethod
     @no_type_check
